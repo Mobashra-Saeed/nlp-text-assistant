@@ -1,0 +1,5 @@
+text,expected_word,expected_suggestion
+"My friend and I are going to the sore for grocery.",sore,store
+"We can go together to boutique for shopping.",boutique,a boutique
+"She has a sore throat.",,
+"We went to the boutique for shopping.",,
