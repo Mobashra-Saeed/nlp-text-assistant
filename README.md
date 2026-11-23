@@ -1,16 +1,23 @@
 # NLP Text Assistant
 
-NLP Text Assistant is a small English-language web app for checking spelling and selected grammar or word-choice issues. Type in the editor to see findings, review suggestions, and apply corrections. The app also offers word autocomplete and a benchmark view. Checks are delayed briefly after typing pauses to avoid sending a request for every keystroke.
+NLP Text Assistant is a hybrid NLP spelling, grammar, and autocomplete engine with a browser-based editor. It combines a custom local spelling ranker with LanguageTool grammar checks and interactive correction suggestions.
 
-## What it does
+## How it works
 
-Spelling suggestions come from an English dictionary and candidate ranking based on character edits, phonetic similarity, letter patterns, and word frequency. LanguageTool checks grammar and spelling through its public API. When enabled, the full text is sent to that external service. A few local rules cover specific context patterns, such as “to the sore for grocery.”
+```mermaid
+flowchart LR
+    A[Text input] --> B[Debounced API]
+    B --> C[Hybrid local scorer + LanguageTool]
+    C --> D[Ranked suggestions]
+```
 
-This is a lightweight rule-and-dictionary assistant, not a trained AI model or a general-purpose grammar checker. Suggestions can be wrong, so review them before applying.
+The local spelling engine generates candidates using edit distance, ranks them with Soundex phonetic encoding, character-bigram Dice similarity, and word frequency from the NLTK Brown Corpus. An English dictionary recognizes words and provides frequency fallback; optional custom words can be added locally. A few explicit local rules handle selected context patterns. LanguageTool checks grammar and spelling through its public API. The browser waits briefly after typing pauses before sending text for checking.
 
-## Run locally on Windows
+LanguageTool receives the text being checked when enabled. Disable it with `DISABLE_LANGUAGETOOL=1` to keep checks local. This is a hybrid rules-and-dictionary system, not a general-purpose semantic model; review suggestions before applying them.
 
-From the repository root, open PowerShell and run:
+## Run locally
+
+From the repository root:
 
 ```powershell
 py -m venv .venv
@@ -19,22 +26,46 @@ python -m pip install -r nlp-text-assistant\requirements.txt
 python app.py
 ```
 
-Open <http://127.0.0.1:5000>. On first startup, NLTK may download the Brown Corpus for word-frequency ranking. The app can still use its spelling dictionary if that corpus is unavailable.
+macOS or Linux:
 
-To keep text from being sent to LanguageTool, disable the external check before starting the app:
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r nlp-text-assistant/requirements.txt
+python app.py
+```
+
+Open <http://127.0.0.1:5000>. On first startup, NLTK may download the Brown Corpus for frequency ranking. The English dictionary still supports spelling checks if the corpus is unavailable.
+
+To disable the external LanguageTool check, set the environment variable before starting the app. In PowerShell:
 
 ```powershell
 $env:DISABLE_LANGUAGETOOL = "1"
 python app.py
 ```
 
-Local spelling checks and the app’s narrow context rules will still run.
+On macOS or Linux:
+
+```bash
+DISABLE_LANGUAGETOOL=1 python app.py
+```
 
 ## Evaluation
 
-The benchmark page evaluates spelling detection and correction against `benchmark_500.csv`, which contains 730 labeled word pairs despite its legacy filename. It reports accuracy, precision, recall, F1, and whether the expected correction appears in the top one or five suggestions. It also runs four small, hand-written checks for the local context rules. These datasets are useful for project-level checks, not a measure of performance on all writing.
+The spelling benchmark uses 730 labeled word pairs in `benchmark_500.csv` (the filename is historical). Results from the current engine:
 
-Run the automated tests from the repository root with:
+| Metric | Result |
+|---|---:|
+| Typo-detection accuracy | 98.90% |
+| Precision | 96.15% |
+| Recall | 89.29% |
+| F1 score | 92.59% |
+| Expected correction in top 1 | 97.53% (712/730) |
+| Expected correction in top 5 | 98.77% (721/730) |
+
+Detection metrics measure whether the engine proposes a change. Top-1 and Top-5 are hit rates across all 730 rows, including already-correct examples, not typo-only correction rates. The benchmark page also evaluates four targeted local context-rule examples; this small set is a regression check, not a general grammar score.
+
+Run the automated tests from the repository root:
 
 ```powershell
 python -m unittest discover -s tests
@@ -44,4 +75,4 @@ python -m unittest discover -s tests
 
 `app.py`, `nlp_engine.py`, `api_aggregator.py`, and `context_rules.py` contain the Flask backend and text-checking logic. `nlp-text-assistant` contains the browser interface, its launcher, and Python requirements. The benchmark CSV files and automated tests are at the repository root.
 
-To allow names or specialist terms, add one accepted word per line to a root-level `custom_words.txt`. Restart the app after editing the file.
+To recognize names or specialist terms, add one word per line to a root-level `custom_words.txt` and restart the app.
