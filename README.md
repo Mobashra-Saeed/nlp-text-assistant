@@ -15,6 +15,21 @@ The local spelling engine generates candidates using edit distance, ranks them w
 
 LanguageTool receives the text being checked when enabled. Disable it with `DISABLE_LANGUAGETOOL=1` to keep checks local. This is a hybrid rules-and-dictionary system, not a general-purpose semantic model; review suggestions before applying them.
 
+### Interface & Evaluation Preview
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="./assets/live-editor.png" alt="Real-Time Text Canvas" width="100%" /><br/>
+      <sub><b>Real-Time Text Canvas:</b> Debounced hybrid spelling, grammar, and autocomplete suggestions.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="./assets/spelling-benchmark.png" alt="Spelling Benchmark Dashboard" width="100%" /><br/>
+      <sub><b>Evaluation Dashboard:</b> Automated 730-pair benchmark reporting Accuracy, Precision, Recall, F1, and Top-K metrics.</sub>
+    </td>
+  </tr>
+</table>
+
 ## Run locally
 
 From the repository root:
