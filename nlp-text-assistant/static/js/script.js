@@ -12,9 +12,137 @@ document.addEventListener('DOMContentLoaded', () => {
     const editorView = document.getElementById('editor-view');
     const benchmarkView = document.getElementById('benchmark-view');
     const runBenchmarkBtn = document.getElementById('run-benchmark-btn');
+    const autocompleteMenu = document.getElementById('editor-autocomplete');
+    const autocompleteResults = document.getElementById('autocomplete-results');
 
     let debounceTimer = null;
     let activeTargetSpan = null;
+    let autocompleteTimer = null;
+
+    function getCaretOffset(root) {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return root.innerText.length;
+
+        const range = selection.getRangeAt(0);
+        const beforeRange = document.createRange();
+        beforeRange.selectNodeContents(root);
+        beforeRange.setEnd(range.startContainer, range.startOffset);
+        return beforeRange.toString().length;
+    }
+
+    function placeCaretAtOffset(root, offset) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let currentOffset = 0;
+        let node;
+
+        while ((node = walker.nextNode())) {
+            const nextOffset = currentOffset + node.textContent.length;
+            if (offset <= nextOffset) {
+                const range = document.createRange();
+                range.setStart(node, Math.max(0, offset - currentOffset));
+                range.collapse(true);
+
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                return;
+            }
+            currentOffset = nextOffset;
+        }
+
+        const range = document.createRange();
+        range.selectNodeContents(root);
+        range.collapse(false);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+
+    function hideAutocompleteMenu() {
+        autocompleteMenu.classList.add('hidden');
+        autocompleteResults.innerHTML = '';
+    }
+
+    async function fetchAutocomplete(prefix) {
+        const trimmed = prefix.trim();
+        if (!trimmed || !/^[A-Za-z]+$/.test(trimmed)) {
+            hideAutocompleteMenu();
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/autocomplete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prefix: trimmed })
+            });
+            const data = await response.json();
+            const completions = (data.completions || []).slice(0, 3);
+
+            if (!completions.length) {
+                hideAutocompleteMenu();
+                return;
+            }
+
+            autocompleteResults.innerHTML = '';
+            completions.forEach(item => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'autocomplete-chip';
+                chip.textContent = item;
+                chip.addEventListener('click', () => {
+                    const currentText = editor.innerText;
+                    const caretOffset = getCaretOffset(editor);
+                    const prefixMatch = /([A-Za-z]+)$/.exec(currentText.slice(0, caretOffset));
+                    if (!prefixMatch) {
+                        hideAutocompleteMenu();
+                        return;
+                    }
+
+                    const before = currentText.slice(0, caretOffset - prefixMatch[1].length);
+                    const after = currentText.slice(caretOffset);
+                    const updatedText = before + item + after;
+                    editor.textContent = updatedText;
+                    placeCaretAtOffset(editor, (before + item).length);
+                    hideAutocompleteMenu();
+                    analyzeText();
+                });
+                autocompleteResults.appendChild(chip);
+            });
+
+            autocompleteMenu.classList.remove('hidden');
+        } catch (err) {
+            console.error('Autocomplete request failed:', err);
+            hideAutocompleteMenu();
+        }
+    }
+
+    function triggerAutocompleteFromEditor() {
+        clearTimeout(autocompleteTimer);
+        autocompleteTimer = setTimeout(() => {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) {
+                hideAutocompleteMenu();
+                return;
+            }
+
+            const caretOffset = getCaretOffset(editor);
+            const currentText = editor.innerText;
+            const prefixMatch = /([A-Za-z]+)$/.exec(currentText.slice(0, caretOffset));
+            const prefix = prefixMatch ? prefixMatch[1] : '';
+            fetchAutocomplete(prefix);
+        }, 500);
+    }
+
+    editor.addEventListener('keyup', triggerAutocompleteFromEditor);
+    editor.addEventListener('click', triggerAutocompleteFromEditor);
+    editor.addEventListener('focus', triggerAutocompleteFromEditor);
+
+    document.addEventListener('click', (event) => {
+        if (!autocompleteMenu.contains(event.target) && event.target !== editor) {
+            hideAutocompleteMenu();
+        }
+    });
 
     // View Navigation
     btnEditor.addEventListener('click', () => {

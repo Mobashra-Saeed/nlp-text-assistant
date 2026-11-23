@@ -1,0 +1,15 @@
+# Python environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local configuration and custom vocabulary
+.env
+.env.*
+!.env.example
+custom_words.txt
+
+# Local project notes
+project_explanation.txt

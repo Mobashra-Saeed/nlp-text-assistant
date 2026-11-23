@@ -8,12 +8,6 @@ import nltk
 from nltk.corpus import brown
 from spellchecker import SpellChecker
 
-# Download required corpus silently on startup
-try:
-    nltk.data.find('corpora/brown')
-except LookupError:
-    nltk.download('brown', quiet=True)
-
 class NLPEngine:
     def __init__(self):
         self.spell_checker = SpellChecker(language='en')
@@ -39,7 +33,20 @@ class NLPEngine:
 
     def _build_corpus(self):
         """Builds vocabulary and unigram distribution from NLTK Brown Corpus."""
-        raw_words = brown.words()
+        try:
+            raw_words = brown.words()
+        except LookupError:
+            download_enabled = os.environ.get('NLTK_DOWNLOAD_BROWN', '1').lower() not in {
+                '0', 'false', 'no'
+            }
+            if download_enabled and nltk.download('brown', quiet=True):
+                try:
+                    raw_words = brown.words()
+                except LookupError:
+                    raw_words = []
+            else:
+                raw_words = []
+
         for word in raw_words:
             clean_word = word.lower()
             if re.match(r'^[a-z]+$', clean_word):
@@ -127,8 +134,8 @@ class NLPEngine:
         # 1. Edit Distance 1 & 2 Filtered
         e1 = self.get_edits_one(word)
         e2 = self.get_edits_two(word)
-        known_e1 = {w for w in e1 if w in self.dictionary_vocabulary or w in self.vocabulary}
-        known_e2 = {w for w in e2 if w in self.dictionary_vocabulary or w in self.vocabulary}
+        known_e1 = {w for w in e1 if self.is_known(w)}
+        known_e2 = {w for w in e2 if self.is_known(w)}
         candidates.update(known_e1)
         candidates.update(known_e2)
 
@@ -169,8 +176,15 @@ class NLPEngine:
         if not prefix:
             return []
         
-        matches = [w for w in self.vocabulary if w.startswith(prefix)]
-        matches.sort(key=lambda w: self.word_probs[w], reverse=True)
+        vocabulary = self.vocabulary or (self.dictionary_vocabulary | self.custom_vocabulary)
+        matches = [word for word in vocabulary if word.startswith(prefix)]
+        matches.sort(
+            key=lambda word: self.word_probs.get(
+                word,
+                self.spell_checker.word_frequency.dictionary.get(word, 0),
+            ),
+            reverse=True,
+        )
         return matches[:top_n]
 
     def evaluate_benchmark(self, csv_filepath):

@@ -34,12 +34,3 @@ py -m venv .venv
 
 The CSV currently contains 730 labeled rows (56 typo pairs and 674 identity pairs), despite the legacy filename `benchmark_500.csv`.
 
-## Free public deployment (Render)
-
-The workspace root contains `render.yaml`, which configures a free Render web service. Render builds from the repository root, installs `nlp-text-assistant/requirements.txt`, and starts the root Flask app with Gunicorn.
-
-1. Create a GitHub repository containing only this app's deployment files: root `app.py`, `api_aggregator.py`, `context_rules.py`, `nlp_engine.py`, `benchmark_500.csv`, `benchmark_context.csv`, `render.yaml`, and the `nlp-text-assistant` folder. Do not upload either virtual-environment folder or the separate `Autocorrector_Project` folder.
-2. In Render, choose **New > Blueprint**, connect that GitHub repository, and approve the `nlp-text-assistant` service described by `render.yaml`.
-3. Wait for the build and first startup to finish, then use the `.onrender.com` URL shown for the service.
-
-Render's free web service may spin down when idle, so its first request after inactivity can be slow. The app downloads the NLTK Brown corpus at startup if it is not available in the instance. Live grammar checking also sends text to the external LanguageTool service.

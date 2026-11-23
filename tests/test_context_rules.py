@@ -42,6 +42,14 @@ class ContextRuleTests(unittest.TestCase):
 
         self.assertEqual(result["matches"][0]["suggestions"], ["a boutique"])
 
+    def test_disabled_languagetool_does_not_make_network_request(self):
+        aggregator = APIAggregator(KnownWordStub())
+        with patch.dict("os.environ", {"DISABLE_LANGUAGETOOL": "1"}):
+            with patch("api_aggregator.requests.post") as post_request:
+                self.assertEqual(aggregator._fetch_languagetool("A sentence."), [])
+
+        post_request.assert_not_called()
+
     def test_context_benchmark_passes_all_examples(self):
         benchmark_path = Path(__file__).resolve().parent.parent / "benchmark_context.csv"
         metrics = APIAggregator.evaluate_context_benchmark(benchmark_path)

@@ -1,4 +1,5 @@
 import csv
+import os
 import re
 import requests
 from context_rules import find_context_matches
@@ -126,6 +127,9 @@ class APIAggregator:
         }
 
     def _fetch_languagetool(self, text):
+        if os.environ.get('DISABLE_LANGUAGETOOL', '').lower() in {'1', 'true', 'yes'}:
+            return []
+
         try:
             response = requests.post(
                 self.lt_url,
